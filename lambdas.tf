@@ -8,10 +8,16 @@ resource "aws_s3_bucket" "lambdas" {
   bucket_prefix = "lambdas"
 }
 
-resource "aws_iam_role_policy_attachment" "iam_policy_attach" {
-  role       = aws_iam_role.lambda_exec.name
+resource "aws_iam_policy_attachment" "this" {
+  name       = "role-proxy-attachment"
+  roles      = [aws_iam_role.lambda_exec.name, aws_iam_role.rds_proxy.name]
   policy_arn = aws_iam_policy.iam_policy.arn
 }
+
+#resource "aws_iam_role_policy_attachment" "iam_policy_attach" {
+#  role       = aws_iam_role.lambda_exec.name
+#  policy_arn = aws_iam_policy.iam_policy.arn
+#}
 
 resource "aws_iam_policy" "iam_policy" {
   name        = "lambda_access-policy"
@@ -19,36 +25,39 @@ resource "aws_iam_policy" "iam_policy" {
   policy      = <<EOF
 {
   "Version": "2012-10-17",
-  "Statement": [
+    "Statement": [
     {
-            "Effect": "Allow",
-            "Action": [
-                "s3:ListAllMyBuckets",
-                "s3:GetBucketLocation"
-            ],
-            "Resource": "*"
-        },
-        {
-            "Effect": "Allow",
-            "Action": "s3:*",
-            "Resource": [
-                "arn:aws:s3:::lambdas",
-                "arn:aws:s3:::lambdas/*"
-            ]
-        },
-        {
-          "Action": [
-            "autoscaling:Describe*",
-            "cloudwatch:*",
-            "logs:*",
-            "sns:*"
-          ],
-          "Effect": "Allow",
-          "Resource": "*"
-        }
+      "Effect": "Allow",
+      "Action": [
+        "s3:ListAllMyBuckets",
+        "s3:GetBucketLocation"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": "s3:*",
+      "Resource": [
+        "arn:aws:s3:::lambdas",
+        "arn:aws:s3:::lambdas/*"
+      ]
+    },
+    {
+      "Action": [
+        "autoscaling:Describe*",
+        "cloudwatch:*",
+        "ec2:*",
+        "rds:*",
+        "rds-db:*",
+        "logs:*",
+        "sns:*"
+      ],
+      "Effect": "Allow",
+      "Resource": "*"
+    }
   ]
 }
-  EOF
+EOF
 }
 
 # IAM role which dictates what other AWS services the Lambda function
@@ -59,7 +68,7 @@ data "aws_iam_policy_document" "assume_role" {
 
     principals {
       type        = "Service"
-      identifiers = ["lambda.amazonaws.com"]
+      identifiers = ["lambda.amazonaws.com", "rds.amazonaws.com"]
     }
 
     actions = ["sts:AssumeRole"]
